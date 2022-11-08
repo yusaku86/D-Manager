@@ -7,20 +7,21 @@ Public Sub saveChart(targetYear As String, targetMonth As String)
 
     Dim myFso As New FileSystemObject
     Dim folderPath As String: folderPath = getPath(ActiveSheet.Name)
+    Dim companyName As String: companyName = ActiveSheet.Name
     
     '// 保存先パス確認
     If folderPath = "" Then
-        MsgBox "ファイルの保存先が設定されていません。" & vbLf & "設定(" & ActiveSheet.Name & ")のシートの「保存先変更」より設定してください。", vbQuestion, ThisWorkbook.Name
+        MsgBox "ファイルの保存先が設定されていません。" & vbLf & "設定(" & companyName & ")のシートの「保存先変更」より設定してください。", vbQuestion, ThisWorkbook.Name
         GoTo Break
     ElseIf myFso.FolderExists(folderPath) = False Then
         MsgBox "保存先として設定されているフォルダが存在しません。" & vbLf & "保存先を変更してください。", vbQuestion, ThisWorkbook.Name
         GoTo Break
     End If
     
-    Application.ScreenUpdating = False
+'    Application.ScreenUpdating = False
     Application.DisplayAlerts = False
     
-    Dim fullPath As String: fullPath = folderPath & "\" & targetYear & "\" & ActiveSheet.Name & "車両一覧" & targetYear & targetMonth & ".xlsx"
+    Dim fullPath As String: fullPath = folderPath & "\" & targetYear & "\" & companyName & "車両一覧" & targetYear & targetMonth & ".xlsx"
     
     '//保存先のフォルダに対象年のフォルダが無ければ作成
     Call createFolderIfNotExist(folderPath & "\" & targetYear, myFso)
@@ -34,22 +35,19 @@ Public Sub saveChart(targetYear As String, targetMonth As String)
 
     Set myFso = Nothing
     
-    '// ボタン削除
-    Dim bc As New buttonController
-    bc.deleteButtons ActiveSheet
-    
     '// 表を一つのファイルとして保存
-    ActiveSheet.Copy
+    ActiveSheet.Cells.Copy
+    Dim addedFile As Workbook: Set addedFile = Workbooks.Add
+    
+    With addedFile
+        .Sheets(1).Cells(1, 1).PasteSpecial
+        .Sheets(1).Name = companyName
+    End With
+    
     ActiveWorkbook.SaveAs fullPath, xlOpenXMLWorkbook
-    ActiveWorkbook.Close
-    
-    '// ボタン復元
-    bc.addButton ActiveSheet, Range(Cells(1, 1), Cells(2, 1)), "保存", "openForm"
-    If ActiveSheet.Name = "山岸運送" Then
-        bc.addButton ActiveSheet, Range(Cells(1, 3), Cells(2, 3)), "表加工", "main"
-    End If
-    
-    Set bc = Nothing
+    addedFile.Close
+        
+    Set addedFile = Nothing
     
     MsgBox "保存が完了しました。", Title:=ThisWorkbook.Name
     
@@ -93,8 +91,6 @@ Public Sub setPath()
     ActiveSheet.Cells(2, 2).Value = path
         
 End Sub
-
-
 
 '// ユーザーフォーム起動
 Public Sub openForm()
