@@ -2,8 +2,8 @@ Attribute VB_Name = "saveFile"
 '// 作成した表を名前を付けて保存
 Option Explicit
 
-'// メインルーチン
-Public Sub saveChart(targetYear As String, targetMonth As String)
+'// 表を名前を付けて保存(メインルーチン)
+Public Sub saveChart(ByVal targetYear As String, ByVal targetMonth As String)
 
     Dim myFso As New FileSystemObject
     Dim folderPath As String: folderPath = getPath(ActiveSheet.Name)
@@ -18,7 +18,6 @@ Public Sub saveChart(targetYear As String, targetMonth As String)
         GoTo Break
     End If
     
-'    Application.ScreenUpdating = False
     Application.DisplayAlerts = False
     
     Dim fullPath As String: fullPath = folderPath & "\" & targetYear & "\" & companyName & "車両一覧" & targetYear & targetMonth & ".xlsx"
@@ -55,15 +54,16 @@ Break:
     Set myFso = Nothing
 
 End Sub
+
 '// 保存先取得
-Private Function getPath(company As String) As String
+Private Function getPath(ByVal company As String) As String
 
     getPath = Sheets("設定(" & company & ")").Cells(2, 2).Value
     
 End Function
 
 '// フォルダが無ければ作成
-Private Sub createFolderIfNotExist(path As String, myFso As FileSystemObject)
+Private Sub createFolderIfNotExist(ByVal path As String, ByVal myFso As FileSystemObject)
 
     With myFso
         If .FolderExists(path) = False Then
@@ -81,6 +81,7 @@ Public Sub setPath()
     With Application.FileDialog(msoFileDialogFolderPicker)
         .AllowMultiSelect = False
         .Title = "保存先フォルダの設定"
+        .InitialFileName = "G:"
         If .Show = True Then
             path = .SelectedItems(1)
         Else

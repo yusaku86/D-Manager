@@ -10,7 +10,12 @@ Attribute VB_Exposed = False
 '// シートやセルを操作するクラス
 Option Explicit
 
-'// 先頭(最終)行を取得
+'/**
+ '* 先頭(最終)行を取得
+ '* @params rowType        最初の行(start)を取得するか、最終行(last)を取得するか
+ '* @params standardColumn 基準となる列番号
+ '* @params targetSheet    行を取得するシート
+'**/
 Public Function getRow(rowType As String, standardColumn As Long, targetSheet As Worksheet) As Long
 
     With targetSheet
@@ -25,7 +30,12 @@ Public Function getRow(rowType As String, standardColumn As Long, targetSheet As
     
 End Function
 
-'// 先頭(最終)列を取得
+'/**
+ '* 先頭(最終)列を取得
+ '* @params columnsType 最初の列(start)を取得するか、最終列(last)を取得するか
+ '* @params standardRow 基準となる行番号
+ '* @params targetSheet 列を取得するシート
+'**/
 Public Function getColumn(columnType As String, standardRow As Long, targetSheet As Worksheet) As Long
     
     With targetSheet
@@ -74,14 +84,24 @@ End Function
 
 '/**
  '* 文字列を数値に変換
+ '* 対象列の左に1行挿入し、対象列を数値に変換した列を作成(エクセルのVALUE関数を使用)↓
+ '* 挿入した列を値として保存して、対象列を削除
+ '*
+ '* @params targetColumn 対象列番号
+ '* @params startRow     数値に変換する最初の行番号
+ '* @params lastRow      数値に変換する最終行番号
  '**/
  Public Sub toNumber(targetColumn As Long, startRow As Long, lastRow As Long)
 
     Columns(targetColumn).Insert xlToRight
     
+    '// 対象列番号をアルファベットに変換したもの
     Dim columnIndexName As String: columnIndexName = Split(Columns(targetColumn + 1).Address, "$")(2)
     
-    Cells(startRow, targetColumn).Formula = "=IF(" & columnIndexName & startRow & "="""","""",IFERROR(VALUE(" & columnIndexName & startRow & ")," & columnIndexName & startRow & "))"
+    '// 新しく挿入した列のセルに式を入力(対象列番号が5、開始行が1の場合の式は以下のようになる)
+    '// =IF(E1="","",IFERROR(VALUE(E1),E1))
+    Cells(startRow, targetColumn).Formula = _
+        "=IF(" & columnIndexName & startRow & "="""","""",IFERROR(VALUE(" & columnIndexName & startRow & ")," & columnIndexName & startRow & "))"
     Cells(startRow, targetColumn).AutoFill Range(Cells(startRow, targetColumn), Cells(lastRow, targetColumn)), xlFillValues
     
     Columns(targetColumn).Copy
@@ -91,10 +111,11 @@ End Function
  End Sub
  
  '/**
- '* データを並べ替え
- '* @params keyColumn 並べ替えのキー
+ '* データを昇順で並び替え
+ '* @params keyColumn   並べ替えのキー列番号
+ '* @params targetRange 並び替えをする範囲
  '**/
- Public Sub sortValues(keyColumn As Long, targetRange)
+ Public Sub sortValues(ByVal keyColumn As Long, ByVal targetRange As Range)
  
     With ActiveSheet.Sort
         With .SortFields
@@ -108,19 +129,25 @@ End Function
     End With
         
  End Sub
+ 
  '/**
  '* 日付の書式を和暦に変更
- '* @params startRow 開始行
- '* @params lastRow 最終行
- '* @params targetColumn 対象列
- '* @params dateType 月、日のどこまで表示するか指定(month,dayのどちらか)
+ '* @params startRow     開始行番号
+ '* @params lastRow      最終行番号
+ '* @params targetColumn 対象列番号
+ '* @params dateType     月、日のどこまで表示するか指定(month,dayのどちらか)
  '**/
-Public Sub changeDateFormat(startRow As Long, lastRow As Long, targetColumn As Long, dateType As String)
+Public Sub changeDate2JapaneseCalender(ByVal startRow As Long, ByVal lastRow As Long, ByVal targetColumn As Long, dateType As String)
 
     Columns(targetColumn).Insert (xlToLeft)
     
+    '// 対象列番号をアルファベットに変換したもの
     Dim columnIndexName As String: columnIndexName = Split(Columns(targetColumn + 1).Address, "$")(2)
     
+    
+    '// yyyy-mm-ddの形を ggge年mm月dd日 もしくは ggge年mm年dd日 に変換
+    '// 例)2022-01-01でdateTypeがday:  令和4年01月01日
+    '//                dateTypeがmonth:令和4年01月
     If dateType = "day" Then
         Cells(startRow, targetColumn).Formula = "=TEXT(DATE(LEFT(" & columnIndexName & startRow & ",4),MID(" & columnIndexName & startRow & " ,6,2),RIGHT(" & columnIndexName & startRow & ",2)),""ggge年mm月dd日"")"
     ElseIf dateType = "month" Then
@@ -134,17 +161,23 @@ Public Sub changeDateFormat(startRow As Long, lastRow As Long, targetColumn As L
     Columns(targetColumn + 1).Delete xlToLeft
     
 End Sub
+
 '/**
 '* 指定の列の値を半角に変換
+'* @params startRow     開始行
+'* @pamras lastRow      最終行
 '* @params targetColumn 対象列
 '**/
-Public Sub convertIntoLower(startRow As Long, lastRow As Long, targetColumn As Long)
+Public Sub convertIntoLower(ByVal startRow As Long, ByVal lastRow As Long, ByVal targetColumn As Long)
 
     Columns(targetColumn).Insert xlToRight
     
+    '// 対象列をアルファベットに変換したもの
     Dim columnIndexName As String: columnIndexName = Split(Columns(targetColumn + 1).Address, "$")(2)
     
-    Cells(startRow, targetColumn).Formula = "=SUBSTITUTE(ASC(" & columnIndexName & startRow & "),""増ﾄﾝ"",""増t"")"
+    '// 対象列番号が5、開始行番号が1の場合の式は
+    '// =ASC(E1)
+    Cells(startRow, targetColumn).Formula = "=ASC(" & columnIndexName & startRow & ")"
     Cells(startRow, targetColumn).AutoFill Range(Cells(startRow, targetColumn), Cells(lastRow, targetColumn)), xlFillValues
     
     Columns(targetColumn).Copy
@@ -156,13 +189,14 @@ End Sub
 '/**
 ' * フィルターをかけた後、抽出したものを削除する(フィルターがかかった状態で使用する)
 ' * @params standardCell: 基準となるセル
-' * @params offsetRow: 下げる行数
 '**/
-Public Sub deleteAfterFilter(standardCell As Range)
+Public Sub deleteAfterFilter(ByVal standardCell As Range)
 
-    Dim targetRange As Range: Set targetRange = standardCell.CurrentRegion
+    '// フィルターで抽出した部分(ヘッダーを除く)をtargetRangeに格納
+    Dim targetRange As Range
+    Set targetRange = Range(standardCell.Offset(1), standardCell.End(xlDown).End(xlToRight))
     
-    targetRange.Offset(1).Resize(targetRange.Rows.Count - 1).Delete (xlUp)
+    targetRange.Delete xlUp
     standardCell.AutoFilter
     
     Set targetRange = Nothing
@@ -171,10 +205,11 @@ End Sub
 
 '/**
  '* フィルターをかけた後、抽出したものを別シートに貼り付け
- '* @params standardCell: 基準となるセル
- '* @params targetSheet: 貼り付け先のシート
+ '* @params standardCell:  基準となるセル
+ '* @params standardSheet: コピー元のシート
+ '* @params targetSheet:   貼り付け先のシート
  '**/
- Private Sub pasteAfterFilter(standardCell As Range, standardSheet As Worksheet, targetSheet As Worksheet)
+ Private Sub pasteAfterFilter(ByVal standardCell As Range, ByVal standardSheet As Worksheet, ByVal targetSheet As Worksheet)
   
     Dim targetRange As Range: Set targetRange = standardCell.CurrentRegion
     targetRange.Offset(1).Resize(targetRange.Rows.Count - 1).Copy
@@ -184,9 +219,14 @@ End Sub
     Set targetRange = Nothing
     
  End Sub
-
-'// 車両の分類ごとに分けるサブルーチン
-Public Sub divideTruck(trucktype() As Variant, tmpSheet As Worksheet, targetSheet As Worksheet)
+ 
+'/**
+ '* 車両の分類ごとに分けるサブルーチン
+ '* @params truckType 車種
+ '* @params 車種で分けるために一時的に表をコピーしたシート
+ '* @parmas データの貼り付け先のシート
+'**/
+Public Sub divideTruck(truckTypes As Variant, tmpSheet As Worksheet, targetSheet As Worksheet)
 
     tmpSheet.Activate
     
@@ -196,13 +236,15 @@ Public Sub divideTruck(trucktype() As Variant, tmpSheet As Worksheet, targetShee
     Dim targetRange As Range: Set targetRange = Range(Cells(startRow, 1), Cells(lastRow, lastColumn))
     
     '// 指定の分類でフィルターをかける(truckTypeがその他の場合はフィルターかけない)
-    If trucktype(1) = "その他" Then
+    If truckTypes(0) = "その他" Then
         targetRange.AutoFilter 1, "<>"
     Else
-        filterByTruckTypes trucktype, targetSheet, targetRange
+        '// filterByTruckTypes [車種], [フィルターをかける範囲]
+        filterByTruckTypes truckTypes, targetRange
     End If
     
-    Me.sortValues 1, targetRange                           '// 車種名で並び替え
+    '// 車種名で並び替え
+    Me.sortValues 1, targetRange
     
     '// フィルターをかけて何も引っかからなっかたら抜ける
     If Cells(Rows.Count, 1).End(xlUp).Row = startRow Then
@@ -211,11 +253,14 @@ Public Sub divideTruck(trucktype() As Variant, tmpSheet As Worksheet, targetShee
     End If
     
     '//車種の見出しセル作成
-    setTruckTypeHeader trucktype(), targetSheet
+    '// setTruckTypeHeader [車種], [見出しセルを作成するシート]
+    setTruckTypeHeader truckTypes, targetSheet
         
     '// 抽出した分をtargetSheetに貼り付け & tmpSheetから削除
     Dim standardCell As Range: Set standardCell = Cells(Me.getRow("start", 1, tmpSheet), 1)
+    '// pasteAfterFilter [基準となるセル], [コピー元のシート], [貼り付け先のシート]
     Call pasteAfterFilter(standardCell, tmpSheet, targetSheet)
+    '// deleteAfterFilter [基準となるセル]
     Call deleteAfterFilter(standardCell)
     
     '// 車種ごとの1番下の行に2重下線
@@ -233,9 +278,11 @@ End Sub
 
 '/**
  '* 車種で絞る際、複数車種を一つのカテゴリーとする場合(3tと4tなど)
- '* 車種ごとにフィルターをかけて引っかかったものの最終列の1つ右の列の値を targeted にして、最後にtargetedのものでフィルターをかける
- '*/
-Private Sub filterByTruckTypes(truckTypes() As Variant, targetSheet As Worksheet, targetRange As Range)
+ '* 車種ごとにフィルターをかけて引っかかったものの最終列の1つ右のセルの値を targeted にして、最後にtargetedのものでフィルターをかける
+ '* @params truckTYpes() 車種
+ '* @params targetRange  フィルターをかける範囲
+'**/
+Private Sub filterByTruckTypes(ByRef truckTypes As Variant, ByVal targetRange As Range)
 
     Dim i As Long
     Dim tmpRange As Range
@@ -254,8 +301,8 @@ Private Sub filterByTruckTypes(truckTypes() As Variant, targetSheet As Worksheet
             GoTo Continue
         End If
         
-        Set tmpRange = targetRange.CurrentRegion
-        tmpRange.Offset(1, tmpRange.Columns.Count - 1).Resize(, 1).Value = "targeted"
+        Set tmpRange = Range(targetRange.Cells(1, 1).Offset(1), targetRange.Cells(1, 1).End(xlDown).Offset(, targetRange.Columns.Count - 1))
+        tmpRange.Offset(, tmpRange.Columns.Count - 1).Resize(, 1).Value = "targeted"
         targetRange.AutoFilter
 Continue:
     Next
@@ -263,14 +310,13 @@ Continue:
     Set tmpRange = Nothing
     
     targetRange.AutoFilter targetRange.Columns.Count, "targeted"
-
     
 End Sub
 
 '// 車種の先頭の見出し設定
-Private Sub setTruckTypeHeader(trucktype() As Variant, targetSheet As Worksheet)
+Private Sub setTruckTypeHeader(ByRef truckType As Variant, ByVal targetSheet As Worksheet)
 
-    Dim truckTypeHeader As String: truckTypeHeader = createTruckTypeHeader(trucktype)
+    Dim truckTypeHeader As String: truckTypeHeader = createTruckTypeHeader(truckType)
     
     With targetSheet.Cells(Me.getRow("last", 1, targetSheet) + 1, 1)
         .Value = truckTypeHeader
@@ -281,22 +327,23 @@ Private Sub setTruckTypeHeader(trucktype() As Variant, targetSheet As Worksheet)
     End With
 
 End Sub
-
-'// 車種の見出し名作成
-Private Function createTruckTypeHeader(trucktype() As Variant)
+'/**
+ '* 車種の見出し名作成
+ '* 例)車種が3t,4tの場合の見出し→3t・4t
+Private Function createTruckTypeHeader(ByRef truckType As Variant)
 
     Dim truckTypeHeader As String
     Dim i As Long
     
-    For i = 0 To UBound(trucktype)
-        If trucktype(i) = "" Then
+    For i = 0 To UBound(truckType)
+        If truckType(i) = "" Then
             GoTo Continue
         End If
         
-        If i = UBound(trucktype) Then
-            truckTypeHeader = truckTypeHeader & trucktype(i)
+        If i = UBound(truckType) Then
+            truckTypeHeader = truckTypeHeader & truckType(i)
         Else
-            truckTypeHeader = truckTypeHeader & trucktype(i) & "・"
+            truckTypeHeader = truckTypeHeader & truckType(i) & "・"
         End If
 
 Continue:
@@ -307,7 +354,7 @@ Continue:
 End Function
 
 '// 車種ごとに通し番号を付与
-Private Sub countTrucks(standardCell As Range, targetSheet As Worksheet)
+Private Sub countTrucks(ByVal standardCell As Range, ByVal targetSheet As Worksheet)
 
     Dim startRow As Long: startRow = Me.getRow("last", 2, targetSheet) + 2
     Dim lastRow As Long: lastRow = Me.getRow("last", 1, targetSheet)
@@ -325,8 +372,12 @@ Private Sub countTrucks(standardCell As Range, targetSheet As Worksheet)
     
 End Sub
 
-'// 車両一覧の下に各車種ごとの台数を表示した表を作成
-Public Sub createNumberOfTrucksChart(targetSheet As Worksheet, configSheet As Worksheet)
+'/**
+ '* 車両一覧の下に各車種ごとの台数を表示した表を作成
+ '* @params targetSheet 表を作成するシート
+ '* @params configSheet 車両の分類が入力されている設定シート
+'**/
+Public Sub createNumberOfTrucksChart(ByVal targetSheet As Worksheet, ByVal configSheet As Worksheet)
 
     targetSheet.Activate
 
@@ -344,7 +395,8 @@ Public Sub createNumberOfTrucksChart(targetSheet As Worksheet, configSheet As Wo
     
     For i = 2 To Me.getRow("last", 1, configSheet)
         truckTypes = splitToArray(Split(configSheet.Cells(i, 1), ","))
-        truckTypeHeader = createTruckTypeHeader(truckTypes)                     '// 車種名
+        '// 車種名
+        truckTypeHeader = createTruckTypeHeader(truckTypes)
         
         If truckTypeHeader = "" Then
             GoTo Continue
@@ -362,7 +414,8 @@ Public Sub createNumberOfTrucksChart(targetSheet As Worksheet, configSheet As Wo
             GoTo Continue
         End If
         
-        numberOfTrucks = Cells(targetRow, 2).Value                                         '// 車種ごとの合計台数
+        '// 車種ごとの合計台数
+        numberOfTrucks = Cells(targetRow, 2).Value
         
         With Cells(Me.getRow("last", 1, targetSheet) + 1, 1)
             .Value = truckTypeHeader
@@ -390,7 +443,6 @@ End Sub
 
 '// split関数で分けた値を配列に変換
 Public Function splitToArray(splitedValue As Variant)
-
 
     Dim returnArray() As Variant
     ReDim returnArray(0)

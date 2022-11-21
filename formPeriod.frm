@@ -29,7 +29,7 @@ Private Sub UserForm_Initialize()
     
     Dim i As Long
 
-    '// コンボボックスの値設定
+    '// コンボボックスの値設定(現在から5年まえまで選択肢として追加)
     With cmbYear
         For i = Year(Now) - 5 To Year(Now)
             .AddItem i & "年"

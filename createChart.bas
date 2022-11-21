@@ -36,37 +36,57 @@ Public Sub main()
     '// 車種に「テスト」という文字列が入っているものを削除
     Range(Cells(startRow, 1), Cells(lastRow, lastColumn)).AutoFilter 1, "*テスト*", xlOr, "*ﾃｽﾄ*"
     If Cells(Rows.Count, 1).End(xlUp).Row > startRow Then
+        '// deleteAfterFilter [基準となるセル]
         sc.deleteAfterFilter Cells(startRow, 1)
     End If
     
-    '// 最大積載量を数値に変換 & 最大積載量で昇順に並べ替え
+    '/**
+     '* 最大積載量を数値に変換 & 最大積載量で昇順に並べ替え
+    '**/
+    
+    '// toNumber  [対象列番号],[開始行番号],[最終行番号]
     sc.toNumber 14, startRow, lastRow
     Columns(14).NumberFormatLocal = "#,###"
+    
+    '// sortValues[キー列番号],[ソートする範囲]
     sc.sortValues 14, Range(Cells(startRow, 1), Cells(lastRow, lastColumn))
     
-    '// 日付を西暦から和暦に変換
-    sc.changeDateFormat startRow + 1, lastRow, 9, "month"
+    '/**
+     '* 日付を西暦から和暦に変換
+    '**/
+    
+    '// changeDate2JapaneseCalender [開始行番号],[最終行番号],[対象列番号],[月と日のどちらまで表示するか]
+    sc.changeDate2JapaneseCalender startRow + 1, lastRow, 9, "month"
     Cells(startRow, 9).Value = "初年度登録年月"
-    sc.changeDateFormat startRow + 1, lastRow, 10, "day"
+    sc.changeDate2JapaneseCalender startRow + 1, lastRow, 10, "day"
     Cells(startRow, 10).Value = "登録年月日"
     
-    '// 車種を半角に統一
+    '/**
+     '* 車種を半角に統一
+    '**/
+    
+    '// convertIntoLower [開始行番号],[最終行番号],[対象列番号]
     sc.convertIntoLower startRow + 1, lastRow, 1
     Cells(startRow, 1).Value = "車種"
     
     Columns(2).Insert xlToRight
     Cells(startRow, 2).Value = "台数"
     
-    '// YCLの分をYCLのシートに移動 & 「保存」ボタン追加
+    '/**
+     '* YCLの分をYCLのシートに移動 & 「保存」ボタン追加
+    '**/
     sc.createSheet "YCL"
     
     Sheets("YCL").Activate
     Dim bc As New buttonController
+    
+    '// addButton [ボタンを追加するシート],[ボタンを追加する範囲],[ボタンに表示するキャプション],[ボタンに登録するマクロ]
     bc.addButton Sheets("YCL"), Sheets("YCL").Range(Cells(1, 1), Cells(2, 1)), "保存", "openForm"
     Set bc = Nothing
     
     Sheets("山岸運送").Activate
     
+    '// 会社がYCLをものをYCLのシートにコピーし、山岸運送のシートから削除
     Range(Cells(startRow, 1), Cells(lastRow, lastColumn)).AutoFilter 3, "YCL"
     Cells(startRow, 1).CurrentRegion.Copy Sheets("YCL").Cells(startRow, 1)
     sc.deleteAfterFilter Cells(startRow, 1)
@@ -76,6 +96,7 @@ Public Sub main()
     sc.deleteAfterFilter Cells(startRow, 1)
     
     '// 山岸運送分のデータを一時的に保存するシート「山岸運送tmp」を作成 & データを「山岸運送tmp」へコピー
+    '// pasteToTmpSheet [コピー元シート],[貼り付け先シート],[コピーする範囲の先頭行],[コピーする範囲の最終行]
     sc.createSheet "山岸運送tmp"
     pasteToTmpSheet Sheets("山岸運送"), Sheets("山岸運送tmp"), startRow, lastRow
     
@@ -103,7 +124,7 @@ Public Sub main()
 End Sub
 
 '// 一時的に作成したシートに元のシートのデータをコピー(元のシートのヘッダーは残す)
-Private Sub pasteToTmpSheet(targetSheet As Worksheet, tmpSheet As Worksheet, startRow As Long, lastRow As Long)
+Private Sub pasteToTmpSheet(ByVal targetSheet As Worksheet, ByVal tmpSheet As Worksheet, ByVal startRow As Long, ByVal lastRow As Long)
 
     With targetSheet
         .Activate
@@ -119,34 +140,22 @@ End Sub
 ' *@params tmpSheet    データを車種ごとに分けるために一時的に作成するシート
 ' *@params configSheet 車種の設定等が書かれたシート
 '**/
-Private Sub classifyTruck(targetSheet As Worksheet, tmpSheet As Worksheet, configSheet As Worksheet, sc As sheetController)
+Private Sub classifyTruck(ByVal targetSheet As Worksheet, ByVal tmpSheet As Worksheet, ByVal configSheet As Worksheet, ByVal sc As sheetController)
 
-    With configSheet
-        .Activate
+    configSheet.Activate
         
-        Dim tmpCell As Range
-        Dim truckTypes() As Variant
-         
-        Dim i As Long
-        Dim splitedTmpcell As Variant
-        
-        For Each tmpCell In Range(Cells(2, 1), Cells(sc.getRow("last", 1, configSheet), 1))
-            splitedTmpcell = Split(tmpCell.Value, ",")
-            ReDim truckTypes(0)
-                
-            '// 設定シートに入力された車種を格納した配列を作成
-            For i = 0 To UBound(splitedTmpcell)
-                ReDim Preserve truckTypes(UBound(truckTypes) + 1)
-                truckTypes(UBound(truckTypes)) = splitedTmpcell(i)
-            Next
-            
-            sc.divideTruck truckTypes, tmpSheet, targetSheet
-        Next
-    End With
+    Dim i As Long
+    Dim truckTypes As Variant
+    
+    For i = 2 To configSheet.Cells(Rows.Count, 1).End(xlUp).Row
+        truckTypes = Split(configSheet.Cells(i, 1).Value, ",")
+        '// deivideTruck [車種], [一時的にデータをコピーしているシート], [貼り付け先シート]
+        sc.divideTruck truckTypes, tmpSheet, targetSheet
+    Next
     
     tmpSheet.Delete
     
-    '//車番・車名の台数の後に移動
+    '// 車番・車名の台数の後に移動
     With targetSheet
         .Activate
         .Range("H:I").Cut
@@ -189,7 +198,7 @@ End Sub
 ' * 車検有効期限列に条件付き書式設定
 ' * 期限切れ→赤,10日以内→黄色,30日以内→緑
 ' */
-Private Sub setFormatCondition(targetSheet As Worksheet)
+Private Sub setFormatCondition(ByVal targetSheet As Worksheet)
 
     With targetSheet.Range("P:P").FormatConditions
         .Delete
@@ -212,13 +221,13 @@ Private Sub setFormatCondition(targetSheet As Worksheet)
         fcGreen.Interior.Color = RGB(50, 205, 50)
         Set fcGreen = Nothing
     End With
+    
 End Sub
-
 
 '/**
  '* ヘッダーの罫線を太線に設定
  '**/
-Private Sub setHeaderLine(targetSheet As Worksheet, sc As sheetController, lineWeight As Long)
+Private Sub setHeaderLine(ByVal targetSheet As Worksheet, ByVal sc As sheetController, ByVal lineWeight As Long)
 
     Dim startRow As Long: startRow = sc.getRow("start", 1, targetSheet)
 
